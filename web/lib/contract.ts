@@ -12,12 +12,14 @@ export function contractAddress(): Hex {
 }
 
 export async function getAssetIdByContentHash(contentHash: Hex): Promise<Hex> {
-  return (await publicClient.readContract({
-    address: contractAddress(),
-    abi: LIKENESS_LOCK_ABI,
-    functionName: "getAssetIdByContentHash",
-    args: [contentHash],
-  })) as Hex;
+  return (await withRetry(() =>
+    publicClient.readContract({
+      address: contractAddress(),
+      abi: LIKENESS_LOCK_ABI,
+      functionName: "getAssetIdByContentHash",
+      args: [contentHash],
+    }),
+  )) as Hex;
 }
 
 export async function getAssetStatus(assetId: Hex): Promise<{
@@ -26,42 +28,50 @@ export async function getAssetStatus(assetId: Hex): Promise<{
   valid: boolean;
   expired: boolean;
 }> {
-  const [active, required, valid, expired] = (await publicClient.readContract({
-    address: contractAddress(),
-    abi: LIKENESS_LOCK_ABI,
-    functionName: "getAssetStatus",
-    args: [assetId],
-  })) as [bigint, bigint, boolean, boolean];
+  const [active, required, valid, expired] = (await withRetry(() =>
+    publicClient.readContract({
+      address: contractAddress(),
+      abi: LIKENESS_LOCK_ABI,
+      functionName: "getAssetStatus",
+      args: [assetId],
+    }),
+  )) as [bigint, bigint, boolean, boolean];
   return { active, required, valid, expired };
 }
 
 export async function getRequiredSubjects(assetId: Hex): Promise<Hex[]> {
-  return (await publicClient.readContract({
-    address: contractAddress(),
-    abi: LIKENESS_LOCK_ABI,
-    functionName: "getRequiredSubjects",
-    args: [assetId],
-  })) as Hex[];
+  return (await withRetry(() =>
+    publicClient.readContract({
+      address: contractAddress(),
+      abi: LIKENESS_LOCK_ABI,
+      functionName: "getRequiredSubjects",
+      args: [assetId],
+    }),
+  )) as Hex[];
 }
 
 export async function getConsentState(assetId: Hex, subjectId: Hex): Promise<number> {
   return Number(
-    await publicClient.readContract({
-      address: contractAddress(),
-      abi: LIKENESS_LOCK_ABI,
-      functionName: "getConsentState",
-      args: [assetId, subjectId],
-    }),
+    await withRetry(() =>
+      publicClient.readContract({
+        address: contractAddress(),
+        abi: LIKENESS_LOCK_ABI,
+        functionName: "getConsentState",
+        args: [assetId, subjectId],
+      }),
+    ),
   );
 }
 
 export async function getNonce(subjectId: Hex): Promise<bigint> {
-  return (await publicClient.readContract({
-    address: contractAddress(),
-    abi: LIKENESS_LOCK_ABI,
-    functionName: "nonces",
-    args: [subjectId],
-  })) as bigint;
+  return (await withRetry(() =>
+    publicClient.readContract({
+      address: contractAddress(),
+      abi: LIKENESS_LOCK_ABI,
+      functionName: "nonces",
+      args: [subjectId],
+    }),
+  )) as bigint;
 }
 
 // Monad testnet's public RPC caps eth_getLogs to a 100-block range per call.
@@ -73,6 +83,27 @@ const DEPLOY_BLOCK = process.env.NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK
   ? BigInt(process.env.NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK)
   : 0n;
 
+// Kept low: the public RPC's per-second rate limit is shared across every
+// concurrent call a single request makes (this scan + getAssetStatus +
+// getRequiredSubjects + a getConsentState per subject), so firing too many
+// eth_getLogs windows at once trips "requests limited to N/sec" outright.
+const PARALLEL_CHUNKS = 3;
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const rateLimited = err instanceof Error && /limited to \d+\/sec/i.test(err.message);
+      if (!rateLimited || attempt === retries) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** attempt));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * The frozen interface exposes activeConsentCount/expired via getAssetStatus but not
  * the raw contentHash/purposeHash/expiresAt fields directly. Both the client (to build
@@ -83,8 +114,6 @@ const DEPLOY_BLOCK = process.env.NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK
  * down to DEPLOY_BLOCK. Assets are always created after deployment and, in practice,
  * shortly before this is called, so this resolves in one or two chunks.
  */
-const PARALLEL_CHUNKS = 10n; // 10 x 100-block windows per round trip batch
-
 export async function getAssetCreatedFields(assetId: Hex): Promise<{
   contentHash: Hex;
   purposeHash: Hex;
@@ -103,20 +132,23 @@ export async function getAssetCreatedFields(assetId: Hex): Promise<{
     toBlock = fromBlock - 1n;
   }
 
-  // Query newest-first, in parallel batches, so a recently created asset
-  // (the common case: /create just redirected here) resolves in one round trip.
-  for (let i = 0; i < windows.length; i += Number(PARALLEL_CHUNKS)) {
-    const batch = windows.slice(i, i + Number(PARALLEL_CHUNKS));
+  // Query newest-first, in small parallel batches, so a recently created asset
+  // (the common case: /create just redirected here) resolves in one round trip
+  // without tripping the RPC's per-second rate limit.
+  for (let i = 0; i < windows.length; i += PARALLEL_CHUNKS) {
+    const batch = windows.slice(i, i + PARALLEL_CHUNKS);
     const results = await Promise.all(
       batch.map(({ fromBlock, toBlock }) =>
-        publicClient.getContractEvents({
-          address: contractAddress(),
-          abi: LIKENESS_LOCK_ABI,
-          eventName: "AssetCreated",
-          args: { assetId },
-          fromBlock,
-          toBlock,
-        }),
+        withRetry(() =>
+          publicClient.getContractEvents({
+            address: contractAddress(),
+            abi: LIKENESS_LOCK_ABI,
+            eventName: "AssetCreated",
+            args: { assetId },
+            fromBlock,
+            toBlock,
+          }),
+        ),
       ),
     );
 

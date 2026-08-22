@@ -45,7 +45,10 @@ export async function GET(
   const id = assetId as Hex;
 
   const [fields, status, subjectIds] = await Promise.all([
-    getAssetCreatedFields(id).catch(() => null),
+    getAssetCreatedFields(id).catch((err) => {
+      console.error("[certificate] getAssetCreatedFields failed", assetId, err);
+      return null;
+    }),
     getAssetStatus(id),
     getRequiredSubjects(id),
   ]);
