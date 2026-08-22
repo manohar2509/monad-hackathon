@@ -1,0 +1,80 @@
+# =====================================================================
+# LikenessLock monorepo — single root .gitignore.
+# Do not add per-directory .gitignore files (contracts/, web/, etc.) —
+# every rule for the whole repo lives here so there is one place to look.
+# =====================================================================
+
+# --- Secrets & environment files (never commit) -----------------------
+# Matches .env, .env.local, contracts/.env, web/.env.local, etc. at any depth.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+RELAYER_PRIVATE_KEY*
+
+# --- Scratch / debug / local-only test artifacts -----------------------
+# One-off dry-run scripts and throwaway debug tests must never be committed.
+scratch-*
+**/scratch-*
+Debug.t.sol
+**/test/Debug.t.sol
+
+# --- Agent & IDE session directories ------------------------------------
+.claude/*
+!.claude/launch.json
+hackthon-details/*
+
+# --- Dependencies --------------------------------------------------------
+node_modules/
+**/node_modules/
+pnpm-lock.yaml
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# --- Foundry (contracts/) -------------------------------------------------
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+# Vendored forge dependencies (forge-std, openzeppelin-contracts) — installed
+# via `forge install`, not committed. Reproducible from foundry.toml remappings.
+contracts/lib/
+
+# --- Next.js (web/) --------------------------------------------------------
+web/.next/
+web/out/
+web/build/
+web/coverage/
+web/.vercel/
+web/*.tsbuildinfo
+web/next-env.d.ts
+
+# --- Generic build outputs -------------------------------------------------
+dist/
+build/
+.next/
+out/
+.turbo/
+.vercel/
+.cache/
+
+# --- IDE & OS ----------------------------------------------------------
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# --- Logs ----------------------------------------------------------
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

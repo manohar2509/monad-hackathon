@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * LikenessLock design tokens — frozen per spec §9.3.
+ * Product is a single fixed dark theme (trust/security product), no light mode.
+ */
+:root {
+  --background: #08060f;
+  --foreground: #ffffff;
+  --card: #0e091c;
+  --card-foreground: #ffffff;
+  --popover: #171128;
+  --popover-foreground: #ffffff;
+  --primary: #6e54ff;
+  --primary-foreground: #ffffff;
+  --secondary: #171128;
+  --secondary-foreground: #ffffff;
+  --muted: #171128;
+  --muted-foreground: #a7a1b5;
+  --accent: #ddd7fe;
+  --accent-foreground: #08060f;
+  --destructive: #ff5c7a;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #6e54ff;
+  --chart-1: #6e54ff;
+  --chart-2: #39d98a;
+  --chart-3: #ffae45;
+  --chart-4: #ff5c7a;
+  --chart-5: #ddd7fe;
+  --radius: 0.625rem;
+  --sidebar: #0e091c;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #6e54ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #171128;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #6e54ff;
+
+  /* LikenessLock status/brand tokens (spec §9.3 / §9.4) */
+  --ll-surface: #0e091c;
+  --ll-surface-raised: #171128;
+  --ll-primary: #6e54ff;
+  --ll-primary-soft: #ddd7fe;
+  --ll-text-primary: #ffffff;
+  --ll-text-secondary: #a7a1b5;
+  --ll-border: rgba(255, 255, 255, 0.1);
+  --ll-verified: #39d98a;
+  --ll-warning: #ffae45;
+  --ll-revoked: #ff5c7a;
+
+  --ll-radius-card: 16px;
+  --ll-radius-control: 10px;
+  --ll-radius-badge: 999px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+}
