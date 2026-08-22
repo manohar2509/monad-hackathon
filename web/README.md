@@ -12,6 +12,7 @@ Create `web/.env.local` (gitignored, never commit — contains a private key):
 NEXT_PUBLIC_MONAD_CHAIN_ID=10143
 NEXT_PUBLIC_MONAD_RPC_URL=https://testnet-rpc.monad.xyz
 NEXT_PUBLIC_CONTRACT_ADDRESS=0x...          # set after contract deploy
+NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK=...       # block number of the deploy tx
 NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://testnet.monadexplorer.com
 
 MONAD_RPC_URL=https://testnet-rpc.monad.xyz
@@ -20,6 +21,11 @@ RELAYER_PRIVATE_KEY=0x...                   # server-only, never NEXT_PUBLIC_
 
 `RELAYER_PRIVATE_KEY` must never be prefixed `NEXT_PUBLIC_` — that would ship
 it to the browser bundle. It's read only inside `app/api/relay/route.ts`.
+
+`NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK` bounds the backward event-log scan in
+`lib/contract.ts` (Monad's public RPC caps `eth_getLogs` to 100 blocks per
+call) — set it to the block number the contract was deployed at, so lookups
+never need to scan earlier than that.
 
 ## Usage
 
