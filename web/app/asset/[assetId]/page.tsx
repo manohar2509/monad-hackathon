@@ -1,7 +1,9 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { ConsentPassport, type PassportStatus } from "@/components/consent-passport";
 import { PasskeyButton } from "@/components/passkey-button";
 import { TransactionLink } from "@/components/transaction-link";
@@ -156,6 +158,9 @@ export default function AssetPage({ params }: { params: Promise<{ assetId: strin
   const status: PassportStatus = expired ? "expired" : valid ? "valid" : "invalid";
   const knownLocally = required.filter((r) => listDemoSubjects().some((s) => s.subjectId === r.subjectId));
 
+  const nameMap = Object.fromEntries(required.map((r) => [r.subjectId, r.displayName]));
+  const certificateHref = `/api/certificate/${assetId}?purpose=${encodeURIComponent(purpose)}&names=${encodeURIComponent(JSON.stringify(nameMap))}`;
+
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-6 px-6 py-16">
       <ConsentPassport
@@ -168,6 +173,17 @@ export default function AssetPage({ params }: { params: Promise<{ assetId: strin
         activeCount={activeCount}
         requiredCount={required.length}
       />
+
+      {valid && (
+        <a
+          href={certificateHref}
+          download={`likenesslock-certificate-${assetId.slice(2, 10)}.png`}
+          className={buttonVariants({ variant: "outline", className: "gap-2 rounded-[10px]" })}
+        >
+          <Download size={16} />
+          Download Certificate
+        </a>
+      )}
 
       <Card className="w-full rounded-[16px] border-white/10 bg-[var(--ll-surface)]">
         <CardContent className="flex flex-col gap-3 pt-6">

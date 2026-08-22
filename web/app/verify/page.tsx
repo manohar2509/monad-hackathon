@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/file-dropzone";
 import { ConsentPassport, type PassportStatus } from "@/components/consent-passport";
 import { hashFile } from "@/lib/hash-file";
@@ -30,6 +32,54 @@ type Result =
 
 const stateLabel: Record<number, ConsentStatus> = { 0: "none", 1: "active", 2: "revoked" };
 
+async function resolveByFingerprint(fingerprint: Hex): Promise<Result> {
+  const assetId = await getAssetIdByContentHash(fingerprint);
+  const empty = /^0x0+$/.test(assetId);
+
+  if (empty) {
+    return { kind: "no-passport", fingerprint };
+  }
+
+  const [fields, status, subjectIds] = await Promise.all([
+    getAssetCreatedFields(assetId),
+    getAssetStatus(assetId),
+    getRequiredSubjects(assetId),
+  ]);
+
+  const known = listDemoSubjects();
+  const subjects = await Promise.all(
+    subjectIds.map(async (subjectId) => {
+      const stateNum = await getConsentState(assetId, subjectId);
+      const local = known.find((s) => s.subjectId === subjectId);
+      return {
+        displayName: local?.displayName ?? `${subjectId.slice(0, 8)}...`,
+        status: stateLabel[stateNum] ?? "none",
+      };
+    }),
+  );
+
+  const purpose =
+    (typeof window !== "undefined" && sessionStorage.getItem(`likenesslock:purpose:${assetId}`)) ||
+    `purposeHash ${fields.purposeHash.slice(0, 10)}...`;
+
+  const passportStatus: PassportStatus = status.expired
+    ? "expired"
+    : status.valid
+      ? "valid"
+      : "invalid";
+
+  return {
+    kind: "resolved",
+    fingerprint,
+    assetId,
+    status: passportStatus,
+    activeCount: Number(status.active),
+    subjects,
+    purpose,
+    validUntil: new Date(Number(fields.expiresAt) * 1000).toLocaleDateString(),
+  };
+}
+
 export default function VerifyPage() {
   const [fileName, setFileName] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -42,52 +92,17 @@ export default function VerifyPage() {
 
     try {
       const fingerprint = await hashFile(file);
-      const assetId = await getAssetIdByContentHash(fingerprint);
-      const empty = /^0x0+$/.test(assetId);
+      setResult(await resolveByFingerprint(fingerprint));
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      if (empty) {
-        setResult({ kind: "no-passport", fingerprint });
-        return;
-      }
-
-      const [fields, status, subjectIds] = await Promise.all([
-        getAssetCreatedFields(assetId),
-        getAssetStatus(assetId),
-        getRequiredSubjects(assetId),
-      ]);
-
-      const known = listDemoSubjects();
-      const subjects = await Promise.all(
-        subjectIds.map(async (subjectId) => {
-          const stateNum = await getConsentState(assetId, subjectId);
-          const local = known.find((s) => s.subjectId === subjectId);
-          return {
-            displayName: local?.displayName ?? `${subjectId.slice(0, 8)}...`,
-            status: stateLabel[stateNum] ?? "none",
-          };
-        }),
-      );
-
-      const purpose =
-        (typeof window !== "undefined" && sessionStorage.getItem(`likenesslock:purpose:${assetId}`)) ||
-        `purposeHash ${fields.purposeHash.slice(0, 10)}...`;
-
-      const passportStatus: PassportStatus = status.expired
-        ? "expired"
-        : status.valid
-          ? "valid"
-          : "invalid";
-
-      setResult({
-        kind: "resolved",
-        fingerprint,
-        assetId,
-        status: passportStatus,
-        activeCount: Number(status.active),
-        subjects,
-        purpose,
-        validUntil: new Date(Number(fields.expiresAt) * 1000).toLocaleDateString(),
-      });
+  async function handleRecheck() {
+    if (!result) return;
+    setLoading(true);
+    try {
+      setResult(await resolveByFingerprint(result.fingerprint));
     } finally {
       setLoading(false);
     }
@@ -139,6 +154,17 @@ export default function VerifyPage() {
           activeCount={result.activeCount}
           requiredCount={result.subjects.length}
         />
+      )}
+
+      {result && !loading && (
+        <Button
+          variant="outline"
+          className="gap-2 rounded-[10px]"
+          onClick={handleRecheck}
+        >
+          <RefreshCw size={16} />
+          Check again
+        </Button>
       )}
     </main>
   );
