@@ -28,27 +28,63 @@ demo-assets/ Original + visibly-edited demo images for the tamper-detection demo
 
 ### 1. Smart contract
 
+Dependencies (`forge-std`, `openzeppelin-contracts`) are not committed — `contracts/lib/` is gitignored and restored with:
+
 ```bash
 cd contracts
 forge install foundry-rs/forge-std --no-git
 forge install OpenZeppelin/openzeppelin-contracts --no-git
-forge test                    # 30 tests, real P256 signatures
-forge script script/Deploy.s.sol --rpc-url <monad-testnet-rpc> --broadcast
 ```
 
-See [`contracts/README.md`](contracts/README.md) for full details and env vars.
+Create `contracts/.env` (gitignored, never commit) with:
+
+```
+MONAD_RPC_URL=https://testnet-rpc.monad.xyz
+MONAD_EXPLORER_API_URL=https://testnet.monadexplorer.com
+RELAYER_PRIVATE_KEY=0x...   # server-only, funded Monad testnet key
+```
+
+Then:
+
+```bash
+forge test                    # 30 tests, real P256 signatures via Foundry cheatcodes
+forge script script/Deploy.s.sol --rpc-url $MONAD_RPC_URL --broadcast
+
+# Local dry-run with no real funds needed:
+anvil
+forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+```
 
 ### 2. Web app
+
+Create `web/.env.local` (gitignored, never commit — contains a private key):
+
+```
+NEXT_PUBLIC_MONAD_CHAIN_ID=10143
+NEXT_PUBLIC_MONAD_RPC_URL=https://testnet-rpc.monad.xyz
+NEXT_PUBLIC_CONTRACT_ADDRESS=0x...          # set after contract deploy
+NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK=...       # block number of the deploy tx
+NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://testnet.monadexplorer.com
+
+MONAD_RPC_URL=https://testnet-rpc.monad.xyz
+RELAYER_PRIVATE_KEY=0x...                   # server-only, never NEXT_PUBLIC_
+```
+
+`RELAYER_PRIVATE_KEY` must never be prefixed `NEXT_PUBLIC_` — that would ship it to the browser bundle. It's read only inside `app/api/relay/route.ts`.
+
+`NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK` bounds the backward event-log scan in `web/lib/contract.ts` (Monad's public RPC caps `eth_getLogs` to 100 blocks per call) — set it to the block number the contract was deployed at, so lookups never need to scan earlier than that.
+
+Then:
 
 ```bash
 cd web
 npm install
 npm run dev      # http://localhost:3000
+npm run build
+npm run lint
 ```
 
-Requires a `.env.local` — see [`web/README.md`](web/README.md) for the exact variables (RPC URL, deployed contract address, a funded relayer private key).
-
-WebAuthn passkeys are origin-bound: `localhost` works for local development, but a real end-to-end passkey demo needs the deployed HTTPS origin.
+WebAuthn passkeys are origin-bound: `localhost` works as a dev fallback, but a real end-to-end passkey demo needs the deployed HTTPS origin.
 
 ## Tech
 
