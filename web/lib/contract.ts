@@ -64,41 +64,79 @@ export async function getNonce(subjectId: Hex): Promise<bigint> {
   })) as bigint;
 }
 
+// Monad testnet's public RPC caps eth_getLogs to a 100-block range per call.
+const LOG_QUERY_CHUNK = 100n;
+
+// Block the contract was deployed at — nothing relevant exists before this,
+// so backward-chunked searches never need to scan past it.
+const DEPLOY_BLOCK = process.env.NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK
+  ? BigInt(process.env.NEXT_PUBLIC_CONTRACT_DEPLOY_BLOCK)
+  : 0n;
+
 /**
  * The frozen interface exposes activeConsentCount/expired via getAssetStatus but not
  * the raw contentHash/purposeHash/expiresAt fields directly. Both the client (to build
  * the exact digest it must sign) and the UI (to render terms before signing) need them,
  * so they're recovered from the AssetCreated event log, which carries all three.
+ *
+ * Scans backward from the latest block in 100-block windows (the RPC's per-call cap)
+ * down to DEPLOY_BLOCK. Assets are always created after deployment and, in practice,
+ * shortly before this is called, so this resolves in one or two chunks.
  */
+const PARALLEL_CHUNKS = 10n; // 10 x 100-block windows per round trip batch
+
 export async function getAssetCreatedFields(assetId: Hex): Promise<{
   contentHash: Hex;
   purposeHash: Hex;
   expiresAt: bigint;
 }> {
-  const logs = await publicClient.getContractEvents({
-    address: contractAddress(),
-    abi: LIKENESS_LOCK_ABI,
-    eventName: "AssetCreated",
-    args: { assetId },
-    fromBlock: 0n,
-    toBlock: "latest",
-  });
+  const latest = await publicClient.getBlockNumber();
 
-  const log = logs[0];
-  if (!log || !("args" in log)) {
-    throw new Error("ASSET_NOT_FOUND");
+  const windows: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
+  let toBlock = latest;
+  while (toBlock >= DEPLOY_BLOCK) {
+    const fromBlock = toBlock - LOG_QUERY_CHUNK + 1n > DEPLOY_BLOCK
+      ? toBlock - LOG_QUERY_CHUNK + 1n
+      : DEPLOY_BLOCK;
+    windows.push({ fromBlock, toBlock });
+    if (fromBlock === DEPLOY_BLOCK) break;
+    toBlock = fromBlock - 1n;
   }
 
-  const args = log.args as {
-    assetId: Hex;
-    contentHash: Hex;
-    purposeHash: Hex;
-    expiresAt: bigint;
-  };
+  // Query newest-first, in parallel batches, so a recently created asset
+  // (the common case: /create just redirected here) resolves in one round trip.
+  for (let i = 0; i < windows.length; i += Number(PARALLEL_CHUNKS)) {
+    const batch = windows.slice(i, i + Number(PARALLEL_CHUNKS));
+    const results = await Promise.all(
+      batch.map(({ fromBlock, toBlock }) =>
+        publicClient.getContractEvents({
+          address: contractAddress(),
+          abi: LIKENESS_LOCK_ABI,
+          eventName: "AssetCreated",
+          args: { assetId },
+          fromBlock,
+          toBlock,
+        }),
+      ),
+    );
 
-  return {
-    contentHash: args.contentHash,
-    purposeHash: args.purposeHash,
-    expiresAt: args.expiresAt,
-  };
+    for (const logs of results) {
+      const log = logs[0];
+      if (log && "args" in log) {
+        const args = log.args as {
+          assetId: Hex;
+          contentHash: Hex;
+          purposeHash: Hex;
+          expiresAt: bigint;
+        };
+        return {
+          contentHash: args.contentHash,
+          purposeHash: args.purposeHash,
+          expiresAt: args.expiresAt,
+        };
+      }
+    }
+  }
+
+  throw new Error("ASSET_NOT_FOUND");
 }
