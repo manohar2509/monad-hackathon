@@ -32,6 +32,7 @@ hackthon-details/*
 *.docx
 task.md
 implementation_plan.md
+USP_WINNING_SPECS.md
 
 # --- Dependencies --------------------------------------------------------
 node_modules/

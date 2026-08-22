@@ -74,6 +74,18 @@ export async function getNonce(subjectId: Hex): Promise<bigint> {
   )) as bigint;
 }
 
+export async function getSubjectExists(subjectId: Hex): Promise<boolean> {
+  const [, , exists] = (await withRetry(() =>
+    publicClient.readContract({
+      address: contractAddress(),
+      abi: LIKENESS_LOCK_ABI,
+      functionName: "subjects",
+      args: [subjectId],
+    }),
+  )) as [Hex, Hex, boolean];
+  return exists;
+}
+
 // Monad testnet's public RPC caps eth_getLogs to a 100-block range per call.
 const LOG_QUERY_CHUNK = 100n;
 

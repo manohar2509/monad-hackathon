@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,28 @@ import { saveDemoSubject, listDemoSubjects } from "@/lib/demo-subjects";
 import { callRelay } from "@/lib/relay";
 
 type Step = "idle" | "creating" | "registering" | "done" | "error";
+
+function CopySubjectId({ subjectId }: { subjectId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(subjectId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 text-xs font-mono text-[var(--ll-text-secondary)] hover:text-[var(--ll-text-primary)]"
+      title={subjectId}
+    >
+      {subjectId.slice(0, 10)}...{subjectId.slice(-6)}
+      {copied ? <Check size={12} className="text-[var(--ll-verified)]" /> : <Copy size={12} />}
+    </button>
+  );
+}
 
 export default function IdentityPage() {
   const [displayName, setDisplayName] = useState("Alice");
@@ -93,10 +116,13 @@ export default function IdentityPage() {
               <div className="text-sm text-[var(--ll-verified)]">
                 {result.subject.displayName} registered on-chain
               </div>
-              <div className="text-xs font-mono text-[var(--ll-text-secondary)]">
-                subjectId {result.subject.subjectId.slice(0, 10)}...
-                {result.subject.subjectId.slice(-6)}
+              <div className="flex items-center gap-2 text-xs text-[var(--ll-text-secondary)]">
+                <span>subjectId</span>
+                <CopySubjectId subjectId={result.subject.subjectId} />
               </div>
+              <p className="text-xs text-[var(--ll-text-secondary)]">
+                Share this ID with a creator so they can require your consent on an asset.
+              </p>
               <TransactionLink txHash={result.txHash} blockNumber={result.blockNumber} />
             </div>
           )}
@@ -115,9 +141,7 @@ export default function IdentityPage() {
                 className="flex items-center justify-between text-sm text-[var(--ll-text-primary)]"
               >
                 <span>{s.displayName}</span>
-                <span className="font-mono text-xs text-[var(--ll-text-secondary)]">
-                  {s.subjectId.slice(0, 10)}...
-                </span>
+                <CopySubjectId subjectId={s.subjectId} />
               </div>
             ))}
           </CardContent>

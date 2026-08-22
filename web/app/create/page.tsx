@@ -11,8 +11,11 @@ import { hashFile } from "@/lib/hash-file";
 import { hashPurpose } from "@/lib/purpose";
 import { listDemoSubjects } from "@/lib/demo-subjects";
 import { callRelay } from "@/lib/relay";
+import { getSubjectExists } from "@/lib/contract";
 import type { StoredCredential } from "@/lib/passkey";
 import type { Hex } from "@/lib/types";
+
+const SUBJECT_ID_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 
 export default function CreatePage() {
   const router = useRouter();
@@ -29,6 +32,10 @@ export default function CreatePage() {
     return d.toISOString().slice(0, 10);
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [externalSubjects, setExternalSubjects] = useState<Hex[]>([]);
+  const [externalInput, setExternalInput] = useState("");
+  const [externalError, setExternalError] = useState<string | null>(null);
+  const [checkingExternal, setCheckingExternal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +49,45 @@ export default function CreatePage() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAddExternalSubject() {
+    const id = externalInput.trim() as Hex;
+    setExternalError(null);
+
+    if (!SUBJECT_ID_PATTERN.test(id)) {
+      setExternalError("Must be a 32-byte hex subject ID (0x + 64 hex characters).");
+      return;
+    }
+    if (subjects.some((s) => s.subjectId === id) || externalSubjects.includes(id)) {
+      setExternalError("Already added.");
+      return;
+    }
+
+    setCheckingExternal(true);
+    try {
+      const exists = await getSubjectExists(id);
+      if (!exists) {
+        setExternalError("No subject registered on Monad with this ID.");
+        return;
+      }
+      setExternalSubjects((prev) => [...prev, id]);
+      setSelected((prev) => new Set(prev).add(id));
+      setExternalInput("");
+    } catch {
+      setExternalError("Could not check this subject ID — try again.");
+    } finally {
+      setCheckingExternal(false);
+    }
+  }
+
+  function removeExternalSubject(id: Hex) {
+    setExternalSubjects((prev) => prev.filter((s) => s !== id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
   }
@@ -152,6 +198,52 @@ export default function CreatePage() {
                 ))}
               </div>
             )}
+
+            {externalSubjects.length > 0 && (
+              <div className="flex flex-col gap-2 pt-1">
+                {externalSubjects.map((id) => (
+                  <div
+                    key={id}
+                    className="flex items-center justify-between gap-2 rounded-[10px] bg-white/[0.02] px-3 py-2 text-sm text-[var(--ll-text-primary)]"
+                  >
+                    <span className="font-mono text-xs">
+                      {id.slice(0, 10)}...{id.slice(-6)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeExternalSubject(id)}
+                      className="text-xs text-[var(--ll-text-secondary)] hover:text-[var(--ll-revoked)]"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Input
+                value={externalInput}
+                onChange={(e) => setExternalInput(e.target.value)}
+                placeholder="Or paste another subject's ID (0x...)"
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 rounded-[10px]"
+                disabled={!externalInput.trim() || checkingExternal}
+                onClick={handleAddExternalSubject}
+              >
+                {checkingExternal ? "Checking..." : "Add"}
+              </Button>
+            </div>
+            {externalError && <p className="text-xs text-[var(--ll-revoked)]">{externalError}</p>}
+            <p className="text-xs text-[var(--ll-text-secondary)]">
+              Someone else registered a passkey on their own device? They can find their subject
+              ID on their <a href="/identity" className="underline">Register identity</a> page and
+              share it with you to add here.
+            </p>
           </div>
 
           {error && <p className="text-sm text-[var(--ll-revoked)]">{error}</p>}
