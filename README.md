@@ -2,7 +2,7 @@
 
 **Consent you can verify.** LikenessLock turns likeness consent into a portable cryptographic authorization bound to an exact AI asset, declared purpose, and expiry — granted and revoked with a real passkey, verified live on Monad.
 
-- **Live app:** https://web-two-gold-55.vercel.app
+- **Live app:** https://likenesslock.gamepulz.com (or https://web-two-gold-55.vercel.app)
 - **Smart contract (Monad Testnet, chain id 10143):** [`0xE60A6215E7621C76Db33ca54a21e6Da13cF7ACB6`](https://testnet.monadexplorer.com/address/0xE60A6215E7621C76Db33ca54a21e6Da13cF7ACB6) — verified source ✅
 - **Network:** Monad Testnet
 
