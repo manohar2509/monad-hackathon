@@ -26,6 +26,11 @@ Debug.t.sol
 !.claude/launch.json
 hackthon-details/*
 
+# --- Internal planning docs (kept locally, not in the public repo) ------
+# Frozen implementation spec — internal build methodology, not meant to be
+# public alongside the product. Keep local, never track/push.
+*.docx
+
 # --- Dependencies --------------------------------------------------------
 node_modules/
 **/node_modules/

@@ -14,8 +14,6 @@
 4. Anyone can upload the file to `/verify` and get a live, on-chain-sourced VALID / INVALID / EXPIRED / NO PASSPORT result — no account needed.
 5. The subject can revoke with their passkey at any time; the same file immediately verifies as INVALID.
 
-See `LikenessLock_MVP_Agent_Implementation_Spec_v1.0.docx` for the full frozen implementation spec.
-
 ## Project structure
 
 ```
