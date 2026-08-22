@@ -122,15 +122,30 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
  * the exact digest it must sign) and the UI (to render terms before signing) need them,
  * so they're recovered from the AssetCreated event log, which carries all three.
  *
- * Scans backward from the latest block in 100-block windows (the RPC's per-call cap)
- * down to DEPLOY_BLOCK. Assets are always created after deployment and, in practice,
- * shortly before this is called, so this resolves in one or two chunks.
+ * Public RPC's `eth_blockNumber` can momentarily lag a transaction that was *just*
+ * mined (read replica lag behind a ~400ms block time), so a scan that snapshots
+ * "latest" once can miss an asset created milliseconds earlier. Retried a few times,
+ * re-fetching "latest" fresh each attempt, so a stale read self-corrects quickly
+ * instead of surfacing as ASSET_NOT_FOUND.
  */
 export async function getAssetCreatedFields(assetId: Hex): Promise<{
   contentHash: Hex;
   purposeHash: Hex;
   expiresAt: bigint;
 }> {
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    const found = await scanForAssetCreated(assetId);
+    if (found) return found;
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  throw new Error("ASSET_NOT_FOUND");
+}
+
+async function scanForAssetCreated(assetId: Hex): Promise<{
+  contentHash: Hex;
+  purposeHash: Hex;
+  expiresAt: bigint;
+} | null> {
   const latest = await publicClient.getBlockNumber();
 
   const windows: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
@@ -182,5 +197,5 @@ export async function getAssetCreatedFields(assetId: Hex): Promise<{
     }
   }
 
-  throw new Error("ASSET_NOT_FOUND");
+  return null;
 }
