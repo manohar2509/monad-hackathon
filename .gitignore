@@ -30,6 +30,8 @@ hackthon-details/*
 # Frozen implementation spec — internal build methodology, not meant to be
 # public alongside the product. Keep local, never track/push.
 *.docx
+task.md
+implementation_plan.md
 
 # --- Dependencies --------------------------------------------------------
 node_modules/
@@ -88,3 +90,8 @@ npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+
+.agents/*
+.aider-desk/*
+.claude/*
